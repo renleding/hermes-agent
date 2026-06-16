@@ -287,7 +287,7 @@ from hermes_cli.subcommands.config import build_config_parser
 from hermes_cli.subcommands.version import build_version_parser
 from hermes_cli.subcommands.update import build_update_parser
 from hermes_cli.subcommands.uninstall import build_uninstall_parser
-from hermes_cli.subcommands.dashboard import build_dashboard_parser
+from hermes_cli.subcommands.dashboard import build_dashboard_parser, _ensure_gateway_starts_with_dashboard
 from hermes_cli.subcommands.gui import build_gui_parser
 from hermes_cli.subcommands.logs import build_logs_parser
 from hermes_cli.subcommands.prompt_size import build_prompt_size_parser
@@ -10712,6 +10712,11 @@ def cmd_dashboard(args):
         # we killed at least one, 1 if they were all unkillable.
         remaining = _find_stale_dashboard_pids()
         sys.exit(1 if remaining else 0)
+
+    # Gateway self-heal: the dashboard is the desktop's primary entrypoint, so
+    # messaging should come up even if the user launched the UI before the
+    # gateway service was loaded.
+    _ensure_gateway_starts_with_dashboard()
 
     # ── Unified profile launch routing ────────────────────────────────
     # The dashboard is a MACHINE management surface: it can read/write any

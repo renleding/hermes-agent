@@ -10,6 +10,40 @@ import argparse
 from typing import Callable
 
 
+def _ensure_gateway_starts_with_dashboard() -> None:
+    """Best-effort self-heal: dashboard startup should not leave messaging offline."""
+    try:
+        from hermes_cli.gateway import (
+            get_gateway_runtime_snapshot,
+            is_macos,
+            launchd_start,
+            supports_systemd_services,
+            systemd_start,
+        )
+    except Exception as exc:
+        print(f"⚠ Could not inspect Hermes gateway state before dashboard startup: {exc}")
+        return
+
+    try:
+        snapshot = get_gateway_runtime_snapshot(system=False)
+        if snapshot.service_running or snapshot.gateway_pids:
+            return
+    except Exception as exc:
+        print(f"⚠ Could not inspect Hermes gateway state before dashboard startup: {exc}")
+        return
+
+    print("Gateway is not running; starting Hermes gateway before dashboard.")
+    try:
+        if is_macos():
+            launchd_start()
+        elif supports_systemd_services():
+            systemd_start(system=False)
+        else:
+            print("Gateway service manager is not supported here; run `hermes gateway start` manually.")
+    except Exception as exc:
+        print(f"⚠ Could not start Hermes gateway before dashboard startup: {exc}")
+
+
 def build_dashboard_parser(
     subparsers, *, cmd_dashboard: Callable, cmd_dashboard_register: Callable
 ) -> None:
