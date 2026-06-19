@@ -1,4 +1,4 @@
-# MemPalace/Ladybug Memory Retrieval Test Report
+# Memory 2.0: MemPalace/Ladybug Memory Retrieval Test Report
 
 ## Summary
 
