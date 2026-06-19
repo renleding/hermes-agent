@@ -233,6 +233,12 @@ Three discovery sources: `~/.hermes/plugins/` (user), `.hermes/plugins/` (projec
 
 → [Plugin Guide](/guides/build-a-hermes-plugin), [Memory Provider Plugin](./memory-provider-plugin.md)
 
+### Memory 2.0
+
+Memory 2.0 is the default memory architecture for Hermes Agent. It keeps MemPalace as the source of truth and uses a LadybugDB-compatible SQLite projection as the read-optimized cache for agent memory lookups. The active provider is `mempalace_ladybug_projection`, so every agent entry point — CLI, gateway, cron, ACP, and API server — gets the same low-latency memory path unless the user explicitly changes `memory.provider`.
+
+→ [Memory Providers](./memory-providers.md), [Memory Provider Plugin](./memory-provider-plugin.md)
+
 ### Cron
 
 First-class agent tasks (not shell tasks). Jobs store in JSON, support multiple schedule formats, can attach skills and scripts, and deliver to any platform.

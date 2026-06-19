@@ -1,12 +1,24 @@
 ---
 sidebar_position: 4
 title: "Memory Providers"
-description: "External memory provider plugins — Honcho, OpenViking, Mem0, Hindsight, Holographic, RetainDB, ByteRover, Supermemory"
+description: "External memory provider plugins — Honcho, OpenViking, Mem0, Hindsight, Holographic, RetainDB, ByteRover, Supermemory, and Memory 2.0"
 ---
 
 # Memory Providers
 
-Hermes Agent ships with 8 external memory provider plugins that give the agent persistent, cross-session knowledge beyond the built-in MEMORY.md and USER.md. Only **one** external provider can be active at a time — the built-in memory is always active alongside it.
+Hermes Agent ships with external memory provider plugins that give the agent persistent, cross-session knowledge beyond the built-in MEMORY.md and USER.md. Only **one** external provider can be active at a time — the built-in memory is always active alongside it.
+
+## Memory 2.0 default
+
+**Memory 2.0** is the default provider name for Hermes Agent: `mempalace_ladybug_projection`. It uses MemPalace as the source of truth and a LadybugDB-compatible SQLite projection as a read-optimized cache for faster agent memory lookups.
+
+```yaml
+memory:
+  provider: mempalace_ladybug_projection
+```
+
+Memory 2.0 is intended for all agent entry points — CLI, gateway, cron, ACP, and API server sessions — unless a user explicitly selects a different external memory provider or disables external memory with `hermes memory off`.
+
 
 ## Quick Start
 
@@ -22,7 +34,7 @@ Or set manually in `~/.hermes/config.yaml`:
 
 ```yaml
 memory:
-  provider: openviking   # or honcho, mem0, hindsight, holographic, retaindb, byterover, supermemory
+  provider: mempalace_ladybug_projection  # default Memory 2.0; or honcho, mem0, hindsight, holographic, retaindb, byterover, supermemory
 ```
 
 ## How It Works

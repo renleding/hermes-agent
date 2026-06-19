@@ -1,4 +1,4 @@
-# MemPalace Ladybug Projection Plugin
+# Memory 2.0: MemPalace Ladybug Projection Plugin
 
 Version: `0.2.0`
 

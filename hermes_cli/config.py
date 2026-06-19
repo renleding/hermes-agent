@@ -1739,11 +1739,13 @@ DEFAULT_CONFIG = {
         "write_approval": False,
         "memory_char_limit": 2200,   # ~800 tokens at 2.75 chars/token
         "user_char_limit": 1375,     # ~500 tokens at 2.75 chars/token
-        # External memory provider plugin (empty = built-in only).
-        # Set to a provider name to activate: "openviking", "mem0",
-        # "hindsight", "holographic", "retaindb", "byterover".
+        # External memory provider plugin. Memory 2.0 is the default:
+        # `mempalace_ladybug_projection` uses MemPalace as source of truth and
+        # a LadybugDB-compatible SQLite projection as a read-optimized cache.
+        # Set to another provider name to activate a different external provider,
+        # or set to an empty string for built-in memory only.
         # Only ONE external provider is allowed at a time.
-        "provider": "",
+        "provider": "mempalace_ladybug_projection",
     },
 
     # Subagent delegation — override the provider:model used by delegate_task

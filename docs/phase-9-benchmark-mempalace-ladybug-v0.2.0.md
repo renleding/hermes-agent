@@ -1,4 +1,4 @@
-# Phase 9 Benchmark — MemPalace Ladybug Projection v0.2.0
+# Phase 9 Benchmark — Memory 2.0 MemPalace Ladybug Projection v0.2.0
 
 Command:
 

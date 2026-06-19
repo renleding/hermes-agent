@@ -1,4 +1,4 @@
-# MemPalace + LadybugDB Projection v0.2.0
+# Memory 2.0: MemPalace + LadybugDB Projection v0.2.0
 
 ## Purpose
 
