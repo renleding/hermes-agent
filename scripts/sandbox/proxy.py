@@ -30,8 +30,31 @@ ROOT, CERTS, REAL_CA = map(pathlib.Path, sys.argv[1:])
 
 LISTEN_ADDRESS = ('127.0.0.1', 8080)
 MAX_REQUEST_BYTES = 65536
-UPSTREAM_TIMEOUT_SECONDS = 30
+# npm/PyPI can take >30s to start a TLS response under load (parallel package
+# fetches, cold mirrors). SSLEOFError spikes in the install E2E were traced to
+# this timeout killing the upstream relay exactly as npm started streaming.
+UPSTREAM_TIMEOUT_SECONDS = 120
 CERT_VALIDITY_DAYS = 2
+# relay() chunk: 16 KiB is a comfortable TLS record size; 64 KiB recv can
+# return a partial buffer that stalls the sendall loop (see _relay below).
+RELAY_CHUNK_BYTES = 16384
+
+
+def _relay(source, destination):
+    """Bidirectional stream copy with strict backpressure handling.
+
+    Reads up to RELAY_CHUNK_BYTES per recv (a TLS record or HTTP chunk, not a
+    giant 64 KiB buffer that can split mid-record) and loops sendall like the
+    stdlib ``shutil.copyfileobj``. A short write on a slow client must not
+    stall the loop -- sendall already blocks until the whole buffer is out,
+    so no extra buffering is needed; the small chunk is what keeps a stalled
+    client from having the proxy sit on a huge half-read TLS buffer.
+    """
+    while True:
+        chunk = source.recv(RELAY_CHUNK_BYTES)
+        if not chunk:
+            return
+        destination.sendall(chunk)
 
 
 def read_request(conn):
@@ -142,20 +165,12 @@ def close_request(request, target=None):
     return b'\r\n'.join(lines) + separator + body
 
 
-def relay(source, destination):
-    while True:
-        chunk = source.recv(MAX_REQUEST_BYTES)
-        if not chunk:
-            return
-        destination.sendall(chunk)
-
-
 def forward_https(conn, host, port, request):
     context = ssl.create_default_context(cafile=str(REAL_CA))
     with socket.create_connection((host, port), timeout=UPSTREAM_TIMEOUT_SECONDS) as raw:
         with context.wrap_socket(raw, server_hostname=host) as upstream:
             upstream.sendall(close_request(request))
-            relay(upstream, conn)
+            _relay(upstream, conn)
 
 
 def forward_http(conn, host, port, request, target):
@@ -165,7 +180,7 @@ def forward_http(conn, host, port, request, target):
         path += f'?{parsed.query}'
     with socket.create_connection((host, port), timeout=UPSTREAM_TIMEOUT_SECONDS) as upstream:
         upstream.sendall(close_request(request, path))
-        relay(upstream, conn)
+        _relay(upstream, conn)
 
 
 def handle_connect(conn, target):
