@@ -10,6 +10,7 @@ import subprocess
 import sys
 import textwrap
 import threading
+import time
 
 import pytest
 import yaml
@@ -96,15 +97,27 @@ def test_profile_local_mcp_tool_is_visible_in_slash_worker(tmp_path):
             target=lambda: output.put(stdout.readline()),
             daemon=True,
         ).start()
-        proc.stdin.write(json.dumps({"id": 1, "command": "/tools"}) + "\n")
-        proc.stdin.flush()
-        try:
-            line = output.get(timeout=10)
-        except queue.Empty:
-            pytest.fail("slash worker produced no /tools response within 10 seconds")
-        response = json.loads(line)
+        # MCP server registration is async: on a loaded CI runner the worker
+        # may answer /tools before the profile-local stdio server finishes
+        # registering, so poll until the probe tool appears (or give up).
+        probe_tool = "mcp__profileprobe__hermes_61922_profile_probe"
+        deadline = time.monotonic() + 30
+        response = None
+        while time.monotonic() < deadline:
+            proc.stdin.write(json.dumps({"id": 1, "command": "/tools"}) + "\n")
+            proc.stdin.flush()
+            try:
+                line = output.get(timeout=10)
+            except queue.Empty:
+                pytest.fail(
+                    "slash worker produced no /tools response within 10 seconds"
+                )
+            response = json.loads(line)
+            if response.get("ok") is True and probe_tool in response["output"]:
+                break
+        assert response is not None, "slash worker gave no /tools response"
         assert response["ok"] is True
-        assert "mcp__profileprobe__hermes_61922_profile_probe" in response["output"]
+        assert probe_tool in response["output"]
     finally:
         proc.terminate()
         try:
