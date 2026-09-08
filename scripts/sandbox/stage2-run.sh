@@ -222,6 +222,8 @@ exec bwrap \
   --setenv HTTPS_PROXY http://127.0.0.1:8080 \
   --setenv ALL_PROXY http://127.0.0.1:8080 \
   --setenv NO_PROXY '' \
+  --setenv npm_config_http2 false \
+  --setenv NPM_CONFIG_HTTP2 false \
   --setenv DEV_SANDBOX_INTERACTIVE "$DEV_SANDBOX_INTERACTIVE" \
   --setenv ELECTRON_DISABLE_SANDBOX 1 \
   "${node_env[@]}" \

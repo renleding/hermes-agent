@@ -41,15 +41,7 @@ RELAY_CHUNK_BYTES = 16384
 
 
 def _relay(source, destination):
-    """Bidirectional stream copy with strict backpressure handling.
-
-    Reads up to RELAY_CHUNK_BYTES per recv (a TLS record or HTTP chunk, not a
-    giant 64 KiB buffer that can split mid-record) and loops sendall like the
-    stdlib ``shutil.copyfileobj``. A short write on a slow client must not
-    stall the loop -- sendall already blocks until the whole buffer is out,
-    so no extra buffering is needed; the small chunk is what keeps a stalled
-    client from having the proxy sit on a huge half-read TLS buffer.
-    """
+    """Bidirectional stream copy with strict backpressure handling."""
     while True:
         chunk = source.recv(RELAY_CHUNK_BYTES)
         if not chunk:
@@ -167,8 +159,20 @@ def close_request(request, target=None):
 
 def forward_https(conn, host, port, request):
     context = ssl.create_default_context(cafile=str(REAL_CA))
+    # Pin ALPN to HTTP/1.1: the proxy relays plain HTTP/1.1 after the CONNECT
+    # tunnel, so an h2-negotiated upstream (npm, uv, pip all speak h2) would
+    # hand us HTTP/2 frames right after the TLS handshake and the
+    # HTTP/1.1-only read_request() below would misparse them into an instant
+    # SSLEOFError (the exact failure seen in install-E2E proxy.log).
+    context.set_alpn_protocols(["http/1.1"])
     with socket.create_connection((host, port), timeout=UPSTREAM_TIMEOUT_SECONDS) as raw:
         with context.wrap_socket(raw, server_hostname=host) as upstream:
+            requested = upstream.selected_alpn_protocol()
+            if requested and requested != "http/1.1":
+                # Only reachable if the server ignores our ALPN list; be loud.
+                raise RuntimeError(
+                    f"upstream {host} negotiated {requested}, expected http/1.1"
+                )
             upstream.sendall(close_request(request))
             _relay(upstream, conn)
 
@@ -191,6 +195,10 @@ def handle_connect(conn, target):
     cert, key = cert_for(host)
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain(cert, key)
+    # Advertise only http/1.1: the proxy parses plain HTTP/1.1 after the TLS
+    # handshake (read_request below). Without ALPN, h2-speaking clients (npm,
+    # uv) negotiate h2 by default and the HTTP/2 preface reads as garbage.
+    context.set_alpn_protocols(["http/1.1"])
     with context.wrap_socket(conn, server_side=True) as tls:
         nested = read_request(tls)
         if not nested:
