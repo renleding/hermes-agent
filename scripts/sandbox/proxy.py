@@ -200,16 +200,23 @@ def handle_connect(conn, target):
     # uv) negotiate h2 by default and the HTTP/2 preface reads as garbage.
     context.set_alpn_protocols(["http/1.1"])
     with context.wrap_socket(conn, server_side=True) as tls:
-        nested = read_request(tls)
-        if not nested:
-            return
-        line = nested.split(b'\r\n', 1)[0].decode('iso-8859-1')
-        nested_target = line.split(' ', 2)[1]
-        found = file_for(host, nested_target)
-        if found is not None:
-            respond_fixture(tls, found)
-        else:
-            forward_https(tls, host, port, nested)
+        # Keep-alive loop: handle multiple HTTP requests over this tunnel.
+        # npm and other clients reuse the CONNECT tunnel for many parallel
+        # requests; without this loop the proxy closes after one request and
+        # subsequent pipelined/keep-alive requests hit SSLEOFError.
+        while True:
+            nested = read_request(tls)
+            if not nested:
+                break  # client closed or EOF
+            if nested.strip() == b'':
+                continue  # ignore empty lines (some clients send CRLF between requests)
+            line = nested.split(b'\r\n', 1)[0].decode('iso-8859-1')
+            nested_target = line.split(' ', 2)[1]
+            found = file_for(host, nested_target)
+            if found is not None:
+                respond_fixture(tls, found)
+            else:
+                forward_https(tls, host, port, nested)
 
 
 def host_from_headers(request):
