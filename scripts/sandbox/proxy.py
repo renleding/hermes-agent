@@ -24,6 +24,7 @@ import ssl
 import subprocess
 import sys
 import threading
+import time
 from urllib.parse import unquote, urlsplit
 
 ROOT, CERTS, REAL_CA = map(pathlib.Path, sys.argv[1:])
@@ -165,16 +166,40 @@ def forward_https(conn, host, port, request):
     # HTTP/1.1-only read_request() below would misparse them into an instant
     # SSLEOFError (the exact failure seen in install-E2E proxy.log).
     context.set_alpn_protocols(["http/1.1"])
-    with socket.create_connection((host, port), timeout=UPSTREAM_TIMEOUT_SECONDS) as raw:
-        with context.wrap_socket(raw, server_hostname=host) as upstream:
-            requested = upstream.selected_alpn_protocol()
-            if requested and requested != "http/1.1":
-                # Only reachable if the server ignores our ALPN list; be loud.
-                raise RuntimeError(
-                    f"upstream {host} negotiated {requested}, expected http/1.1"
-                )
-            upstream.sendall(close_request(request))
-            _relay(upstream, conn)
+    
+    # Retry transient upstream SSL failures (SSLEOFError, timeout) which are
+    # common under heavy parallel load from the install E2E matrix (5 versions
+    # x npm parallel packument fetches all hitting registry.npmjs.org CDN).
+    max_retries = 3
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            with socket.create_connection((host, port), timeout=UPSTREAM_TIMEOUT_SECONDS) as raw:
+                with context.wrap_socket(raw, server_hostname=host) as upstream:
+                    requested = upstream.selected_alpn_protocol()
+                    if requested and requested != "http/1.1":
+                        # Only reachable if the server ignores our ALPN list; be loud.
+                        raise RuntimeError(
+                            f"upstream {host} negotiated {requested}, expected http/1.1"
+                        )
+                    upstream.sendall(close_request(request))
+                    _relay(upstream, conn)
+                    return  # success
+        except ssl.SSLEOFError as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                # Brief backoff before retry
+                time.sleep(0.1 * (attempt + 1))
+                continue
+            # Exhausted retries: re-raise
+            raise
+        except (ConnectionResetError, BrokenPipeError, OSError) as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                time.sleep(0.1 * (attempt + 1))
+                continue
+            raise
+    raise last_error
 
 
 def forward_http(conn, host, port, request, target):
