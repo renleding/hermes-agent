@@ -242,7 +242,11 @@ def handle_connect(conn, target):
             if found is not None:
                 respond_fixture(tls, found)
             else:
-                forward_https(tls, host, port, nested)
+                try:
+                    forward_https(tls, host, port, nested)
+                except Exception as e:
+                    print(f'proxy upstream SSL failed for {host}:{port}: {e!r}', file=sys.stderr, flush=True)
+                    raise
 
 
 def host_from_headers(request):
