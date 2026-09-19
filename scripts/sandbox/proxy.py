@@ -191,7 +191,8 @@ def forward_https(conn, host, port, request):
                 # Brief backoff before retry
                 time.sleep(0.1 * (attempt + 1))
                 continue
-            # Exhausted retries: re-raise
+            # Exhausted retries: log the host and re-raise
+            print(f"proxy upstream SSL failed for {host}:{port} after {max_retries} attempts: {e!r}", file=sys.stderr, flush=True)
             raise
         except (ConnectionResetError, BrokenPipeError, OSError) as e:
             last_error = e
