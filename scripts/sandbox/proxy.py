@@ -269,14 +269,25 @@ def handle_request(conn):
         if found is not None:
             respond_fixture(conn, found)
         else:
-            forward_http(conn, host, parsed.port or 80, request, target)
+            try:
+                forward_http(conn, host, parsed.port or 80, request, target)
+            except Exception as e:
+                print(f'proxy request failed for {host}: {e!r}', file=sys.stderr, flush=True)
+                raise
 
 
 def handle(conn):
     try:
         handle_request(conn)
     except Exception as error:
-        print(f'proxy request failed: {error!r}', file=sys.stderr, flush=True)
+        # Try to extract host from the error if it's an SSL error
+        err_str = str(error)
+        host_info = ""
+        if "SSLEOFError" in err_str:
+            # Attempt to find which host from recent context (we don't have it here)
+            # but we can at least log the error type
+            host_info = " (SSL upstream)"
+        print(f'proxy request failed: {error!r}{host_info}', file=sys.stderr, flush=True)
 
 
 def main():
