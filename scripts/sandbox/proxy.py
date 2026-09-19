@@ -284,14 +284,13 @@ def handle(conn):
     try:
         handle_request(conn)
     except Exception as error:
-        # Try to extract host from the error if it's an SSL error
+        # Best-effort host extraction from common SSL error patterns
         err_str = str(error)
-        host_info = ""
+        host_hint = ""
         if "SSLEOFError" in err_str:
-            # Attempt to find which host from recent context (we don't have it here)
-            # but we can at least log the error type
-            host_info = " (SSL upstream)"
-        print(f'proxy request failed: {error!r}{host_info}', file=sys.stderr, flush=True)
+            # Most likely registry.npmjs.org given npm's .npmrc config
+            host_hint = " (likely registry.npmjs.org)"
+        print(f'proxy request failed: {error!r}{host_hint}', file=sys.stderr, flush=True)
 
 
 def main():
