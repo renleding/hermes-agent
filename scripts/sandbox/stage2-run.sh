@@ -224,8 +224,8 @@ exec bwrap \
   --setenv NO_PROXY '' \
   --setenv npm_config_http2 false \
   --setenv NPM_CONFIG_HTTP2 false \
-  --setenv npm_config_maxsockets 3 \
-  --setenv NPM_CONFIG_MAXSOCKETS 3 \
+  --setenv npm_config_maxsockets 1 \
+  --setenv NPM_CONFIG_MAXSOCKETS 1 \
   --setenv DEV_SANDBOX_INTERACTIVE "$DEV_SANDBOX_INTERACTIVE" \
   --setenv ELECTRON_DISABLE_SANDBOX 1 \
   "${node_env[@]}" \
