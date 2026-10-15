@@ -191,7 +191,8 @@ def forward_https(conn, host, port, request):
                 # Brief backoff before retry
                 time.sleep(0.1 * (attempt + 1))
                 continue
-            # Exhausted retries: re-raise
+            # Exhausted retries: log the host and re-raise
+            print(f"proxy upstream SSL failed for {host}:{port} after {max_retries} attempts: {e!r}", file=sys.stderr, flush=True)
             raise
         except (ConnectionResetError, BrokenPipeError, OSError) as e:
             last_error = e
@@ -241,7 +242,11 @@ def handle_connect(conn, target):
             if found is not None:
                 respond_fixture(tls, found)
             else:
-                forward_https(tls, host, port, nested)
+                try:
+                    forward_https(tls, host, port, nested)
+                except Exception as e:
+                    print(f'proxy upstream SSL failed for {host}:{port}: {e!r}', file=sys.stderr, flush=True)
+                    raise
 
 
 def host_from_headers(request):
@@ -268,14 +273,24 @@ def handle_request(conn):
         if found is not None:
             respond_fixture(conn, found)
         else:
-            forward_http(conn, host, parsed.port or 80, request, target)
+            try:
+                forward_http(conn, host, parsed.port or 80, request, target)
+            except Exception as e:
+                print(f'proxy request failed for {host}: {e!r}', file=sys.stderr, flush=True)
+                raise
 
 
 def handle(conn):
     try:
         handle_request(conn)
     except Exception as error:
-        print(f'proxy request failed: {error!r}', file=sys.stderr, flush=True)
+        # Best-effort host extraction from common SSL error patterns
+        err_str = str(error)
+        host_hint = ""
+        if "SSLEOFError" in err_str:
+            # Most likely registry.npmjs.org given npm's .npmrc config
+            host_hint = " (likely registry.npmjs.org)"
+        print(f'proxy request failed: {error!r}{host_hint}', file=sys.stderr, flush=True)
 
 
 def main():
