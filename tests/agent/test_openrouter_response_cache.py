@@ -13,6 +13,12 @@ import pytest
 class TestBuildOrHeaders:
     """Test the build_or_headers() helper in agent/auxiliary_client.py."""
 
+    def test_zero_data_retention_header_always_sent(self):
+        """OpenRouter ZDR opt-out rides on the base attribution headers (privacy contract)."""
+        from agent.auxiliary_client import build_or_headers
+
+        headers = build_or_headers(or_config={"response_cache": False})
+        assert headers["X-OpenRouter-Zero-Data-Retention"] == "true"
 
     def test_ttl_negative(self):
         """Negative TTL is ignored."""

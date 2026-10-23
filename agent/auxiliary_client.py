@@ -871,10 +871,12 @@ def _resolve_provider_vision_default(provider: str) -> Optional[str]:
 _PROVIDERS_WITHOUT_VISION: frozenset = frozenset({"kimi-coding", "kimi-coding-cn"})
 
 # OpenRouter app attribution (always sent). `X-Title` is what the dashboard reads.
+# `X-OpenRouter-Zero-Data-Retention` opts out of OpenRouter data logging (privacy).
 _OR_HEADERS_BASE = {
     "HTTP-Referer": "https://hermes-agent.nousresearch.com",
     "X-Title": "Hermes Agent",
     "X-OpenRouter-Categories": "productivity,cli-agent",
+    "X-OpenRouter-Zero-Data-Retention": "true",
 }
 
 
